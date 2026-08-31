@@ -16,6 +16,51 @@ tool, including one that does not exist yet.
 - Model and reasoning-effort settings, clearly marked as that tool's mechanics.
 - A pointer to the canonical role contract.
 
+## Where an adapter's files go
+
+**An adapter's framework identifier is not its filesystem layout.** The name a
+project types to ask for an adapter, and the directory the tool actually reads,
+are two different facts. Every tool decides the second for itself: a dotted
+directory, a plain one, a file at the repository root, or several places at
+once. None of that is recoverable from a name.
+
+So an adapter **declares** its layout, and nothing infers one. The declaration
+states, at minimum, the destination directory; optionally, a mapping for the
+files that belong somewhere else, and where its role seats live in the source.
+An adapter with no declaration is an error — adoption stops rather than picking
+a plausible-looking directory.
+
+That last part is the load-bearing half. A wrong path that installs cleanly
+looks exactly like a right one: the files exist, nothing errors, and the tool
+silently reads nothing. A destination that is guessed is a destination nobody
+checked. See [`../tools/adapters.py`](../tools/adapters.py) for the manifest
+this repository uses and the reasoning, and
+[`../tests/test_adapter_install_layout.py`](../tests/test_adapter_install_layout.py)
+for the guards.
+
+Two things must then agree, and a test should hold them together:
+
+- the destination the adapter documents, and the one it declares;
+- every path an installed file refers to inside its own destination, and the
+  files adoption actually wrote. A settings file wiring a hook by path is inert
+  if that path is not where the hook landed, and inertness is silent.
+
+## Seats are per contract, not per declared role name
+
+An adapter ships one seat per **role contract** — the coordinating seat, the
+executor seat, the reviewer seat where it has one. A project-declared specialist
+executor is the executor contract plus a scope statement, not a second contract,
+so it does not get a seat of its own: it is launched on the executor seat, and
+its specialism comes from its scope in the project's coordination document and
+from the brief.
+
+An adapter is free to decide otherwise, but it must then say which it does and
+be accurate about it. Claiming a file per declared role name that the installed
+layout does not contain sends a cold session looking for a seat that is not
+there — and any such generated seat would have to point at a role contract that
+does not exist. Whatever the choice, adoption should report the seats it
+actually installed rather than the ones a reader might infer.
+
 ## What an adapter may never contain
 
 An adapter may not restate or redefine:
@@ -128,9 +173,13 @@ top.
 ## Adding support for a new tool
 
 1. Create a directory for that tool's configuration.
-2. Add one thin adapter file per role, in the shape above.
-3. Add a row to the project's adapter table.
-4. Change **nothing** in the role contracts, the branch convention, the queue, or
+2. **Declare where its files belong**, per *Where an adapter's files go* above.
+   Read it from the tool's own documentation; never assume it matches the
+   directory name you just chose.
+3. Add one thin adapter file per **role contract**, in the shape above — not one
+   per role name a project happens to declare.
+4. Add a row to the project's adapter table.
+5. Change **nothing** in the role contracts, the branch convention, the queue, or
    the authority model. If supporting the tool seems to require that, the change
    belongs in the contract for a reason that has nothing to do with the tool —
    or it does not belong at all.

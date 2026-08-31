@@ -18,6 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
+import adapters as adapter_manifests  # noqa: E402
 import authority  # noqa: E402
 import neutrality  # noqa: E402
 
@@ -29,7 +30,18 @@ CONTRACT_PATH = re.compile(r"docs/agents/roles/(brain|worker|verifier)\.md")
 
 
 def adapter_role_files() -> list[Path]:
-    return sorted(ADAPTERS.rglob("agents/*.md"))
+    """Seat files, per each adapter's declared layout.
+
+    Discovered from the manifests rather than by assuming every tool keeps its
+    seats in a directory called `agents/`. Assuming a layout instead of reading
+    the declared one is precisely the defect
+    `tests/test_adapter_install_layout.py` exists to keep closed.
+    """
+    return [
+        seat
+        for manifest in adapter_manifests.load_all(ADAPTERS)
+        for seat in manifest.seat_files()
+    ]
 
 
 def adapter_files() -> list[Path]:

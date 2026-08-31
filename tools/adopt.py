@@ -15,7 +15,9 @@ Options:
     --verifier         Include the independent reviewer seat.
     --coordinator NAME Name of the coordinating role (default: brain).
     --hooks            Install the sample git pre-push hook.
-    --adapter NAME     Install a bundled provider adapter (repeatable).
+    --adapter NAME     Install a bundled provider adapter (repeatable). Its
+                       destination comes from that adapter's own `adapter.json`
+                       manifest — never from its name. See `tools/adapters.py`.
     --dry-run          Print the plan; write nothing.
 
 Safety: an existing file is never overwritten. The framework version is written
@@ -29,6 +31,10 @@ import argparse
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import adapters as adapter_manifests  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 FRAMEWORK = ROOT / "framework"
@@ -112,6 +118,39 @@ def render(text: str, values: dict[str, str]) -> str:
     return text
 
 
+def adapter_notes(
+    adapter, *, workers: list[str], verifier: bool
+) -> list[str]:
+    """State what this adapter actually installed, and what it did not.
+
+    Derived from the files on disk, not from a claim in a document. An adapter
+    ships one seat per *role contract*; a project-declared specialist executor
+    is the Worker contract plus a scope statement, so it gets no seat of its
+    own. Saying so here stops the adopted layout being read as offering a file
+    per declared role that it does not contain.
+    """
+    seats = adapter.seat_roles()
+    notes = [
+        f"adapter '{adapter.name}' ({adapter.tool}) installs at "
+        f"{adapter.install_root}/"
+        + (f", seats: {', '.join(seats)}." if seats else ".")
+    ]
+    declared = list(workers) + (["verifier"] if verifier else [])
+    unseated = [r for r in declared if r not in seats]
+    if unseated and "worker" in seats:
+        notes.append(
+            f"no seat file is generated for {', '.join(unseated)}: each is the "
+            f"executor contract plus a scope statement, so they share the "
+            f"'worker' seat. The specialism is the scope in AGENTS.md."
+        )
+    elif unseated:
+        notes.append(
+            f"this adapter ships no seat for {', '.join(unseated)}; launch "
+            f"those with the universal procedure in docs/agents/adapters.md."
+        )
+    return notes
+
+
 def build_plan(
     target: Path,
     *,
@@ -184,12 +223,19 @@ def build_plan(
         if not src_dir.is_dir():
             raise SystemExit(
                 f"unknown adapter '{name}'; available: "
-                f"{', '.join(sorted(p.name for p in ADAPTERS.iterdir() if p.is_dir()))}"
+                f"{', '.join(adapter_manifests.available(ADAPTERS))}"
             )
-        for src in sorted(p for p in src_dir.rglob("*") if p.is_file()):
+        # The destination comes from the adapter's own manifest, never from its
+        # name. See tools/adapters.py for why that distinction is load-bearing.
+        try:
+            adapter = adapter_manifests.load(src_dir)
+        except adapter_manifests.AdapterError as exc:
+            raise SystemExit(f"adopt: {exc}") from exc
+        for src in adapter.source_files():
             rel = src.relative_to(src_dir).as_posix()
-            add(f".{name}/{rel}", src.read_text(encoding="utf-8"),
+            add(adapter.destination(rel), src.read_text(encoding="utf-8"),
                 executable=src.suffix == ".py")
+        plan.notes += adapter_notes(adapter, workers=workers, verifier=verifier)
 
     plan.notes.append(
         "Now do the judgement half: write AGENTS.md's invariants, evidence "

@@ -16,6 +16,7 @@ project."*
 | `tests/test_role_neutrality.py` | The neutrality guard, pointed at the project's declared role set. |
 | `tools/neutrality.py` | The scanner the test uses. |
 | `.githooks/pre-push` *(optional)* | A client-side gate, if the project has validation worth running early. |
+| A provider adapter's files *(optional)* | Installed **where that adapter declares**, which is a property of the tool and not of the adapter's name — see [`adapters.md`](adapters.md). `adopt.py` prints the destination and the seats it installed. |
 
 The mechanical copy can be done by [`../tools/adopt.py`](../tools/adopt.py). The
 judgement cannot.
@@ -61,6 +62,12 @@ python tools/adopt.py <target-repo> \
 `--workers` takes the executor role names, comma-separated. `worker` for the
 default topology; `decomper,scaffolder` or similar for specialists. Brain is
 always present. `--verifier` adds the reviewer seat.
+
+Add `--adapter <name>` only if a bundled adapter earns its place. Read the plan
+it prints: it names the destination and the seats installed. An adapter ships
+one seat per role contract, so a specialist executor is normally launched on the
+generic executor seat and scoped by `AGENTS.md` — do not expect a file named
+after each declared role.
 
 The script never overwrites an existing file: it writes a `.framework` sibling
 and reports the collision instead. Re-running it is safe.

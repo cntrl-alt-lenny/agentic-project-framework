@@ -203,6 +203,59 @@ class TestAdapterGuardFires(MutationCase):
         )
 
 
+class TestAdapterInstallLayoutGuardFires(MutationCase):
+    """Reproduce the shipped defect exactly, and prove the guard rejects it.
+
+    The pre-fix installer derived a provider's destination by prepending a dot
+    to its adapter name. Rewriting the manifest to that name-derived value
+    recreates the identical broken tree — configuration under a directory the
+    tool never reads, and an installed hook command pointing at one that does
+    not exist.
+    """
+
+    MODULE = "tests.test_adapter_install_layout"
+
+    def test_the_name_derived_destination_is_caught(self):
+        self.assert_guard_fires(
+            path="adapters/claude-code/adapter.json",
+            mutate=lambda body: body.replace(
+                '"install_root": ".claude"', '"install_root": ".claude-code"'
+            ),
+            module=self.MODULE, expect="does not name the destination",
+            why="the adapter name is not the tool's configuration directory",
+        )
+
+    def test_a_dangling_internal_path_reference_is_caught(self):
+        """The failure the wrong destination actually caused, on its own.
+
+        Even with a destination nobody disputes, a file the installed settings
+        point at must exist once adoption has run.
+        """
+        self.assert_guard_fires(
+            path="adapters/claude-code/settings.json",
+            mutate=lambda body: body.replace(
+                "save_agent_reply.py", "not_installed_anywhere.py"
+            ),
+            module=self.MODULE, expect="not_installed_anywhere.py",
+            why="an installed config pointing at a file adoption never wrote "
+                "is an inert hook that reports nothing",
+        )
+
+    def test_an_adapter_losing_its_manifest_is_caught(self):
+        """No fallback to fall back to: refusing beats guessing."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tree = copy_repo(Path(tmp))
+            rc, out = run_module(tree, self.MODULE)
+            self.assertEqual(rc, 0, f"{self.MODULE} was already failing:\n{out}")
+
+            (tree / "adapters" / "claude-code" / "adapter.json").unlink()
+            rc, out = run_module(tree, self.MODULE)
+            self.assertNotEqual(
+                rc, 0, "an adapter with no declared layout was accepted"
+            )
+            self.assertIn("adapter.json", out)
+
+
 class TestRepositoryIntegrityGuardFires(MutationCase):
     MODULE = "tests.test_repo_integrity"
 

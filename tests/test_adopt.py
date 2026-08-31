@@ -182,10 +182,27 @@ class TestTopologyOptions(AdoptionCase):
             run_adopt(self.target, "--adapter", "no-such-tool")
 
     def test_known_adapter_installs_and_points_at_the_contract(self):
+        # The destination is the adapter's declared one, not one built from its
+        # name. `tests/test_adapter_install_layout.py` guards that mechanism;
+        # this only checks the seat is usable once it is there.
         self.assertEqual(run_adopt(self.target, "--adapter", "claude-code"), 0)
-        adapter = self.target / ".claude-code" / "agents" / "worker.md"
+        adapter = self.target / ".claude" / "agents" / "worker.md"
         self.assertTrue(adapter.is_file())
         self.assertIn("docs/agents/roles/worker.md", adapter.read_text(encoding="utf-8"))
+
+    def test_a_specialist_topology_still_gets_the_generic_executor_seat(self):
+        self.assertEqual(
+            run_adopt(self.target, "--adapter", "claude-code",
+                      "--workers", "decomper,scaffolder"),
+            0,
+        )
+        agents_dir = self.target / ".claude" / "agents"
+        self.assertEqual(
+            sorted(p.name for p in agents_dir.glob("*.md")),
+            ["brain.md", "verifier.md", "worker.md"],
+            "an adapter ships one seat per role contract; a specialist is the "
+            "executor contract plus a scope statement, not a new one",
+        )
 
     def test_hooks_are_installed_only_when_asked(self):
         self.assertEqual(run_adopt(self.target, "--hooks"), 0)
