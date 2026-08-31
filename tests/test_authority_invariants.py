@@ -170,5 +170,95 @@ class TestRoleContractsStateTheirBoundaries(unittest.TestCase):
                 self.assertIn(reserved, text)
 
 
+class TestReservedListStaysNarrow(unittest.TestCase):
+    """A reserved list too wide is the same defect as no delegation at all.
+
+    Delegating routine acceptance and then reserving every technical act it
+    implies gives the authority back one question at a time. The list once
+    reserved "deleting branches" and "changing CI" outright, which put routine
+    housekeeping and ordinary engineering work back on the owner.
+
+    So the categories are locked in BOTH directions: the destructive and
+    governing forms must still be reserved, and the unqualified forms must not
+    come back.
+
+    HONESTY NOTE. This reads the reserved list out of the constitution by its
+    heading, so it is structural rather than a proxy — but it is a text guard on
+    a text artifact, like every other guard here. It cannot prove a running
+    Brain honours the distinction.
+    """
+
+    CONSTITUTION = ROOT / "framework" / "CONSTITUTION.md"
+    MARKER = "**Owner-reserved actions.**"
+
+    def setUp(self):
+        self.text = self.CONSTITUTION.read_text(encoding="utf-8")
+        self.block = self._reserved_block(self.text)
+
+    def _reserved_block(self, text: str) -> str:
+        start = text.find(self.MARKER)
+        self.assertNotEqual(start, -1, "the reserved list has no heading")
+        rest = text[start:]
+        end = rest.find("\n\n**", len(self.MARKER))
+        return rest if end == -1 else rest[:end]
+
+    def test_the_block_was_actually_found(self):
+        # Fail closed: an empty block would make every rule below vacuous.
+        self.assertGreaterEqual(
+            len([l for l in self.block.splitlines() if l.startswith("- ")]), 3,
+            "the reserved list could not be read; these guards would pass "
+            "having checked nothing",
+        )
+
+    def test_destructive_and_governing_actions_are_still_reserved(self):
+        for phrase in (
+            "force-pushing", "protected branch", "unmerged work",
+            "branch protection", "remotes", "licensing",
+        ):
+            with self.subTest(reserved=phrase):
+                self.assertIn(
+                    phrase, self.block,
+                    "narrowing the list must not drop what genuinely belongs "
+                    "to the owner",
+                )
+
+    def test_whole_categories_of_routine_work_are_not_reserved(self):
+        """The over-broad forms, named exactly, so they cannot come back."""
+        for phrase, why in (
+            ("deleting branches",
+             "routine deletion of an already-merged task branch is Brain's "
+             "housekeeping; only destructive deletion is reserved"),
+            ("changing CI",
+             "ordinary work on the project's checks is normal reviewed project "
+             "work; only what is *enforced* is reserved"),
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertNotIn(phrase.lower(), self.block.lower(), why)
+
+    def test_the_routine_side_is_stated_not_merely_implied(self):
+        """A narrowing nobody can find is a narrowing that does not hold.
+
+        The reader who needs this is a cold Brain deciding whether to delete a
+        merged branch. It has to be written down, next to the reserved list.
+        """
+        for phrase in ("already merged", "housekeeping"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase.lower(), self.text.lower())
+
+    def test_red_or_unreviewed_work_is_refused_rather_than_escalated(self):
+        """Brain cannot accept it. That is not the same as asking the owner.
+
+        Listing it as an owner-reserved action made it an escalation, which
+        turns the acceptance test into a question — the same defect as an offer
+        to merge, from the other side.
+        """
+        self.assertNotIn(
+            "merging work that has not", self.block.lower(),
+            "unreviewed or red work is not an owner decision to surface; Brain "
+            "cannot accept it",
+        )
+        self.assertIn("Brain cannot accept it", self.text)
+
+
 if __name__ == "__main__":
     unittest.main()

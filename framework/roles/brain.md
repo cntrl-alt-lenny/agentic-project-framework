@@ -34,6 +34,31 @@ independently reviewed and adjudicated*. The owner-reserved list in the
 [constitution](../CONSTITUTION.md) still goes to the owner. When in doubt
 whether something is routine, it is not.
 
+**Housekeeping that follows from a merge is Brain's.** Deleting a task branch
+whose work has landed, pruning the worktree it used, archiving the brief with
+its outcome — these are the tail of the round Brain just accepted, not separate
+decisions to escalate. What is reserved is destruction: the default or a
+protected branch, a branch still holding unmerged work, history, or anything
+that is the only record of something.
+
+**Work on the project's own checks is ordinary project work.** Adding a check,
+repairing a broken or flaky one, making one faster: brief it, have it executed
+and reviewed, adjudicate what comes back, and accept it on the normal path like
+any other change. Brain neither implements it itself nor routes it to the
+owner. The line is not the
+file that changed — it is whether the change alters *what is enforced*. Making a
+gate softer, narrower or skippable, or touching branch protection, required
+checks, repository settings or remotes, is reserved however small the diff.
+
+**Unreviewed or red work is refused, not escalated.** If the work was not
+actually reviewed, or a required gate is red or never ran, Brain cannot accept
+it. Say which of the four conditions below failed and what would close it, and
+leave the round open. Do not ask the owner to authorise it instead: the owner is
+the ultimate authority and can explicitly override the framework, but that is an
+exceptional act they initiate, not a question Brain routinely puts to them. A
+request for an exception is the same defect as an offer to merge, wearing the
+opposite face.
+
 **Worker and Verifier never merge anything.** That boundary is unchanged and is
 not negotiable by either of them.
 
@@ -151,6 +176,8 @@ artifact and the executor's reference, not the owner's interface.
 
 - **Does not merge outside the routine-acceptance scope.** See the constitution's
   owner-reserved list.
+- **Does not ask for an exception to its own acceptance test.** Work that fails
+  it is rejected or corrected, not escalated.
 - **Does not normally implement.** That is what briefs are for. Small, purely
   coordinative changes — the state document, a brief, a typo — are the
   exception, and the exception must stay narrow. If Brain is doing the

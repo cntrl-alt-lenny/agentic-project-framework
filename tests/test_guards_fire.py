@@ -172,6 +172,44 @@ class TestAuthorityGuardFires(MutationCase):
             why="v1 granted an executor emergency self-merge rights",
         )
 
+    def test_rebroadening_the_reserved_list_is_caught(self):
+        """The exact over-broad bullets, reinstated verbatim.
+
+        Reserving whole technical categories reads as caution and is the same
+        defect as no delegation: the owner is asked again, one routine act at a
+        time.
+        """
+        for bullet, expect, why in (
+            ("\n\n- force-pushing, deleting branches, data or history;\n",
+             "deleting branches",
+             "routine deletion of a merged task branch is housekeeping"),
+            ("\n\n- changing CI, repository settings, or remotes;\n",
+             "changing CI",
+             "ordinary work on the project's checks is normal project work"),
+        ):
+            with self.subTest(bullet=bullet.strip()[:40]):
+                self.assert_guard_fires(
+                    path="framework/CONSTITUTION.md",
+                    mutate=lambda body, b=bullet: body.replace(
+                        "\n\n**Reserved means", b + "\n**Reserved means", 1
+                    ),
+                    module=self.MODULE, expect=expect, why=why,
+                )
+
+    def test_escalating_red_work_instead_of_refusing_it_is_caught(self):
+        """Putting the acceptance test to the owner is an escalation, not a gate."""
+        self.assert_guard_fires(
+            path="framework/CONSTITUTION.md",
+            mutate=lambda body: body.replace(
+                "\n\n**Reserved means",
+                "\n\n- merging work that has not actually been reviewed, or with "
+                "a required gate red;\n\n**Reserved means", 1
+            ),
+            module=self.MODULE, expect="merging work that has not",
+            why="unreviewed or red work is refused by Brain, not surfaced as an "
+                "owner decision",
+        )
+
     def test_losing_the_executor_prohibition_is_caught(self):
         self.assert_guard_fires(
             path="framework/roles/verifier.md",

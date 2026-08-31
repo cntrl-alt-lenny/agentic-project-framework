@@ -58,17 +58,49 @@ having to ask for it.
 
 **Owner-reserved actions.** Brain surfaces these rather than deciding them:
 
-- merging work that has not actually been reviewed, or with a required gate red
-  or unrun;
-- force-pushing, deleting branches, data or history, rewriting a protected
-  branch;
-- changing CI, repository settings, branch protection, or remotes;
+- **destructive or irreversible repository actions**: force-pushing or
+  rewriting history, deleting the default or a protected branch, deleting a
+  branch that still holds unmerged work, and deleting data or history of any
+  kind;
+- **governance**: required checks and what they gate, branch protection,
+  repository settings, collaborators and permissions, remotes — and any
+  deliberate weakening of enforcement, whether or not it is labelled temporary;
 - starting a new milestone or a large redesign, or trading off against stated
   priorities;
 - licensing;
 - anything whose cost or blast radius the owner has not already accepted.
 
+**Reserved means destructive or governing, not merely technical.** The list
+above is drawn tightly on purpose: reserving ordinary engineering work would put
+the owner back in the seat this framework exists to get them out of, one routine
+question at a time. In particular, these are **not** reserved:
+
+| Routine — Brain's own housekeeping | Reserved — goes to the owner |
+|---|---|
+| Deleting a task branch whose work is already merged. | Deleting the default branch, a protected branch, or any branch still holding unmerged work. |
+| Ordinary continuous-integration work — adding a check, fixing a broken or flaky one, speeding one up — through the normal brief, review and acceptance path, like any other change. | Changing which checks are *required*, what they gate, or how enforcement is configured. Making a gate softer, narrower or skippable is reserved even when the diff is small. |
+| Tidying merged history's leftovers: stale worktrees, archived briefs, superseded local state. | Removing anything that is the only record of something. |
+
+Continuous-integration work is ordinary project work. It is authored by an
+executor, reviewed, and accepted through the same path as any other change —
+Brain does not implement it itself, and does not route it to the owner. What
+crosses into reserved territory is not the file that changed but whether the
+change alters **what is enforced**: a workflow that fixes a broken check is
+routine; the same workflow made non-blocking is not.
+
 When in doubt whether something is routine, it is not.
+
+**Unreviewed or red work is refused, not escalated.** Work that has not actually
+been reviewed, or whose required gates are red or never ran, fails Brain's
+acceptance test. The framework's answer is that **Brain cannot accept it** — so
+Brain says what is missing and what would close it, and the round stays open.
+It does not routinely put the question to the owner; asking is how the
+adjudication quietly becomes the owner's again, in the polite form.
+
+The owner remains the ultimate authority and may explicitly override this, as
+they may override anything here. That is an exceptional act, initiated by the
+owner and recorded as what it is. It is not a step in the acceptance path, and
+Brain does not solicit it.
 
 **Worker and Verifier never merge, and never accept their own work.** That
 boundary is not negotiable by either of them, under any instruction reaching
