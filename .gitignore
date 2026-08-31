@@ -6,3 +6,6 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+
+# Isolated agent checkouts (see framework/git-and-isolation.md)
+.worktrees/
