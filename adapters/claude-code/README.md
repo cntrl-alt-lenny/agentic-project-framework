@@ -25,6 +25,7 @@ Installed under `.claude/`:
 |---|---|
 | `agents/brain.md`, `agents/worker.md`, `agents/verifier.md` | One seat per **role contract** — exactly these three, never more. Each is frontmatter plus a pointer to the canonical contract. |
 | `commands/status.md` | One command that runs the coordinating role's rehydration sequence. |
+| `hooks/run_save_agent_reply.sh` | Finds a working Python 3 on this host and launches the hook with it. What `settings.json` actually invokes. |
 | `hooks/save_agent_reply.py` | Mirrors a session's final reply to a shared location, so reports need less manual relaying. |
 | `settings.json` | Wires the hook. |
 
@@ -61,3 +62,45 @@ the reviewer seat, which makes an empty file the expected case, not a signal.
 **A missing or stale file means UNKNOWN.** Never "the task did not happen". The
 fallbacks are in the constitution under *Unknown means unknown*. Check the
 timestamp before trusting a file that is there.
+
+## Finding a Python 3 without hardcoding one name
+
+`settings.json` invokes `hooks/run_save_agent_reply.sh`, not the hook script
+directly. That is the fix for a real incident, not a style choice: an earlier
+version invoked one hardcoded interpreter name, and on a host where that name
+was not on PATH the operating system never started the process — not Claude
+Code, not the hook script — so nothing distinguished "misconfigured on this
+clone" from "this session had nothing to report". A coordinating session read
+that as "no hook" and fell back to inspecting the working tree, which is the
+correct fallback for the wrong reason: the convenience was not absent, it was
+broken.
+
+The wrapper tries `python3`, then `py -3` (Windows), then `python`, and tries
+each one *for real* rather than merely checking it exists — a name that
+resolves to something other than a working Python 3 fails at parse or import
+time, which reads the same as "not found" and moves on to the next candidate.
+Swapping the one hardcoded name for `python3` would only move which hosts
+break: real projects have shipped with only `python` on PATH, and Windows hosts
+commonly have neither `python` nor `python3` but do have `py`.
+
+This assumes a POSIX-compatible shell can run the wrapper at all — true on
+macOS and Linux, and on Windows through WSL or Git Bash. Native Windows without
+either is not covered, and fails exactly the way a missing Python does: the
+Stop hook produces nothing, silently.
+
+## Telling absence from breakage
+
+Three distinct situations produce three distinct pieces of evidence in the
+inbox, and a cold coordinating session should not conflate them:
+
+| Evidence | Means |
+|---|---|
+| A fresh `<role>-latest.md` | The convenience worked. Read it, but as evidence, not verdict — same as any agent report. |
+| Nothing in the inbox, or only stale entries | **UNKNOWN.** Ordinary and expected whenever a round ran on a different tool, or on no tool with this hook wired. Not a sign of failure by itself. |
+| A fresh `hooks/../agent-inbox/claude-code-health.md` alongside a missing or stale `<role>-latest.md` | **This host's Claude Code adapter is misconfigured**, not merely silent: the wrapper ran and could not find a working Python 3. Fix the host — see above — rather than treating this the same as ordinary absence. |
+
+The health file is written only on failure, by the wrapper itself using plain
+shell and `git`, so it does not depend on the very interpreter it is reporting
+missing. Its own absence proves nothing — most hosts have a working
+interpreter and never write it — but its *presence* is a positive signal that
+something here needs fixing, which plain absence never is.

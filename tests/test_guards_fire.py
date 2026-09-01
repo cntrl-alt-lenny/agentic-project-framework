@@ -272,9 +272,9 @@ class TestAdapterInstallLayoutGuardFires(MutationCase):
         self.assert_guard_fires(
             path="adapters/claude-code/settings.json",
             mutate=lambda body: body.replace(
-                "save_agent_reply.py", "not_installed_anywhere.py"
+                "run_save_agent_reply.sh", "not_installed_anywhere.sh"
             ),
-            module=self.MODULE, expect="not_installed_anywhere.py",
+            module=self.MODULE, expect="not_installed_anywhere.sh",
             why="an installed config pointing at a file adoption never wrote "
                 "is an inert hook that reports nothing",
         )
@@ -331,6 +331,48 @@ class TestAdoptedDocReferenceGuardFires(MutationCase):
             module=self.MODULE, expect="tests/test_repo_integrity.py",
             why="an adopting project does not have that file, and the sentence "
                 "does not say so",
+        )
+
+
+class TestClaudeCodeHookPortabilityGuardFires(MutationCase):
+    """The reported incident, reproduced by mutation as well as by fixture.
+
+    `tests/test_claude_code_hook_portability.py` already contains its own
+    self-contained red-before-green class, because proving the launcher chain
+    fails needs more than a substring match — it needs to actually run the
+    old command under a controlled PATH. These two entries exist for the same
+    reason every other guard has one here: a uniform place a future reader
+    checks for "has this guard's failure mode actually been demonstrated",
+    without having to know that this particular module keeps its own copy.
+    """
+
+    MODULE = "tests.test_claude_code_hook_portability"
+
+    def test_reverting_to_the_hardcoded_interpreter_name_is_caught(self):
+        self.assert_guard_fires(
+            path="adapters/claude-code/settings.json",
+            mutate=lambda body: body.replace(
+                "sh .claude/hooks/run_save_agent_reply.sh",
+                "python .claude/hooks/save_agent_reply.py",
+            ),
+            module=self.MODULE, expect="run_save_agent_reply.sh",
+            why="the actual shipped incident: one hardcoded interpreter name "
+                "goes inert on any host where that name is not on PATH",
+        )
+
+    def test_reverting_the_role_tag_to_the_worktree_basename_is_caught(self):
+        self.assert_guard_fires(
+            path="adapters/claude-code/hooks/save_agent_reply.py",
+            mutate=lambda body: body.replace(
+                'role = _role_tag(worktree_root)',
+                'role = Path(worktree_root).name if worktree_root else "unknown"\n'
+                '    role = "".join(c for c in role if c.isalnum() or c in '
+                '"-_") or "unknown"',
+            ),
+            module=self.MODULE, expect="coordinator",
+            why="the primary checkout is named after the project, not the "
+                "coordinating role; tagging by basename mislabels every "
+                "report the coordinating role writes about itself",
         )
 
 
