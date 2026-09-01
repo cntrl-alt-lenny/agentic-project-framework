@@ -1,59 +1,62 @@
 #!/usr/bin/env python3
-"""Mirror a session's final reply to a shared location.
+"""Mirror a session's final reply to the shared, provider-neutral inbox.
 
-A CONVENIENCE, NOT A CONTROL. Read this part before relying on anything it
-writes:
+A CONVENIENCE, NOT A CONTROL, and not a second source of truth either. Every
+filesystem-capable Worker and Verifier already writes its own completion
+report by calling ``tools/report.py`` directly, as part of its contract — see
+``framework/reports.md``. This hook exists so that also happens automatically
+on this one tool, without the model needing to choose to run the command. It
+does the one thing only this tool can do — read a Claude Code transcript — and
+then hands off to the exact same writer every other path uses:
+``tools/report.py``'s ``write_report``. The inbox location, the role tag, the
+atomic write, and the provenance header are that module's job, not this file's;
+duplicating them here is exactly the drift ``adapters.md`` warns a restated
+policy eventually produces.
+
+Read this part before relying on anything it writes:
 
   * It fires only for sessions run on this one tool. A round run on any other
     tool writes nothing here, and that is normal.
   * Therefore **a missing or stale file means UNKNOWN** — never "the task did
-    not happen", "the agent failed", or "the review did not run". The fallbacks,
-    in order, are: the owner pastes the report; inspect repository and pull
+    not happen", "the agent failed", or "the review did not run". The
+    fallbacks, in order, are: check the shared inbox this file writes into
+    (also written to directly by any role on any tool that followed its
+    contract); the owner pastes the report; inspect repository and pull
     request state directly; and where that genuinely cannot answer, ask the
     owner. Repository state can confirm that execution happened, because
     execution leaves a branch and a diff. It cannot confirm that a review
     happened, because a review leaves only a report.
   * Check the timestamp before trusting a file that is there.
 
-Why these path choices:
-
-  * ``git rev-parse --git-common-dir`` gives the repository's shared git
-    directory — the same value from every worktree of the same clone, wherever
-    it was cloned.
-  * The inbox lives inside that directory, which git treats as private and never
-    version-controls. No ignore entry needed, and it disappears with the clone.
-  * The role tag is the basename of the current worktree, matching the isolation
-    convention of one checkout per concurrently-active role — with one
-    exception: ``git-and-isolation.md`` puts the coordinating role in the
-    project's own primary checkout, named after the *project*, not the role.
-    Tagging that with its basename would mislabel every one of the
-    coordinating role's own reports as a project-named executor. See
-    ``_role_tag`` for how the primary checkout is told apart from a linked
-    worktree — the git-native way, not by guessing what a project calls its
-    coordinating role.
+This hook cannot know which brief a session was working from — a Stop event
+carries a session id, not a task identifier, and only the agent following its
+own contract knows the brief. The report this hook writes is therefore tagged
+with the session id, not a brief id, which is honest about what this path
+actually knows rather than guessing. A role that writes its own report via its
+contract supplies the real task identifier; this hook is the fallback for
+sessions that end without having done that.
 
 Requirements: python and git — reached through ``run_save_agent_reply.sh``'s
 wrapper, which tries the Python 3 this host actually has rather than one
-hardcoded name. Non-blocking by design — any error exits 0, since a session
-must never fail to end because of this.
+hardcoded name — and ``tools/report.py`` at the project root, installed by
+`adopt.py` for every project regardless of which adapter, if any, is also
+installed. Non-blocking by design — any error exits 0, since a session must
+never fail to end because of this, including the case where ``tools/report.py``
+is missing from an older adopted tree that has not re-run adoption.
 """
 
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
 
-
-def _git(args: list[str]) -> str | None:
-    try:
-        return subprocess.check_output(
-            ["git", *args], stderr=subprocess.DEVNULL, text=True
-        ).strip()
-    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
-        return None
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_PROJECT_ROOT / "tools"))
+try:
+    import report as _report
+except ImportError:
+    _report = None
 
 
 def _last_assistant_text(transcript_path: Path) -> str | None:
@@ -91,75 +94,10 @@ def _last_assistant_text(transcript_path: Path) -> str | None:
     return "\n".join(parts).strip() or None
 
 
-README = """# agent-inbox
-
-Auto-populated by the provider adapter's session-end hook. Each
-`<role>-latest.md` holds the final reply of the most recent session that ran in
-the matching checkout. `coordinator-latest.md` is the coordinating role's own
-report, from the project's primary checkout — tagged `coordinator` rather than
-the project's name, and rather than whatever this project calls that role,
-because the hook has no way to read that decision out of `AGENTS.md`.
-
-**A missing or stale file means UNKNOWN, never that a task did not happen.** The
-hook fires only for one tool; a round run on any other tool writes nothing here.
-Check timestamps. Fall back to a pasted report, then to repository and pull
-request state, then ask the owner.
-
-**A `claude-code-health.md` file means something different: this hook DID run,
-on this host, and could not find a Python 3 to finish with.** That is not
-UNKNOWN in the same sense — it is a configuration defect on this particular
-clone, not silence from a session that used a different tool. Fix the host (a
-`python3`, or a Windows `py` with Python 3 registered, needs to be on PATH) and
-expect the next session on it to write a normal report. Its absence proves
-nothing either way: most hosts never write it, because most hosts have a
-working interpreter.
-
-Not under version control: this lives inside git's own directory.
-"""
-
-
-def _seed_readme(inbox: Path) -> None:
-    readme = inbox / "README.md"
-    if not readme.exists():
-        readme.write_text(README, encoding="utf-8")
-
-
-def _role_tag(worktree_root: str | None) -> str:
-    """The role this checkout belongs to, or ``coordinator`` for the primary one.
-
-    A linked worktree (``git worktree add``) is created *as* the checkout for
-    one role, so its own basename already matches the isolation convention in
-    ``git-and-isolation.md`` — whatever a project names that directory is the
-    role, which generalises to any layout the convention allows, not only
-    ``.worktrees/<role>``.
-
-    The **primary** checkout is different. ``git-and-isolation.md`` puts the
-    coordinating role there, in a directory named after the *project*. Using
-    that basename tagged every one of the coordinating role's own reports as
-    if it were a project-named executor — indistinguishable from a role that
-    happens to share the project's name. Detected the git-native way instead:
-    ``git rev-parse --git-dir`` and ``--git-common-dir`` coincide only in the
-    primary working tree; a linked worktree's git-dir lives inside the common
-    one. That holds regardless of what either directory is called, and
-    regardless of what a project has named its coordinating role — this file
-    has no way to know that without reading the project's own ``AGENTS.md``,
-    so it does not guess it.
-    """
-    if not worktree_root:
-        return "unknown"
-
-    git_dir = _git(["rev-parse", "--git-dir"])
-    common_dir = _git(["rev-parse", "--git-common-dir"])
-    is_primary = (
-        git_dir is not None
-        and common_dir is not None
-        and Path(git_dir).resolve() == Path(common_dir).resolve()
-    )
-    role = "coordinator" if is_primary else Path(worktree_root).name
-    return "".join(c for c in role if c.isalnum() or c in "-_") or "unknown"
-
-
 def main() -> int:
+    if _report is None:
+        return 0
+
     try:
         raw = sys.stdin.read()
     except (OSError, KeyboardInterrupt):
@@ -182,39 +120,14 @@ def main() -> int:
     if not text:
         return 0
 
-    common_dir = _git(["rev-parse", "--git-common-dir"])
-    if not common_dir:
-        return 0
-    common = Path(common_dir)
-    if not common.is_absolute():
-        common = (Path.cwd() / common).resolve()
-    inbox = common / "agent-inbox"
-    try:
-        inbox.mkdir(parents=True, exist_ok=True)
-        _seed_readme(inbox)
-    except OSError:
-        return 0
-
-    worktree_root = _git(["rev-parse", "--show-toplevel"])
-    role = _role_tag(worktree_root)
-
     session_id = event.get("session_id", "")
-    stamp = datetime.now().isoformat(timespec="seconds")
-    header = (
-        f"<!-- captured {stamp} from checkout role={role}"
-        f"{f' session={session_id}' if session_id else ''} -->\n\n"
-    )
+    task = f"claude-code-session:{session_id}" if session_id else "unspecified"
 
     try:
-        (inbox / f"{role}-latest.md").write_text(header + text + "\n", encoding="utf-8")
-    except OSError:
+        _report.write_report(text, task=task, source="claude-code-stop-hook")
+    except _report.ReportError:
         return 0
 
-    try:
-        with (inbox / f"{role}-log.md").open("a", encoding="utf-8") as f:
-            f.write(f"\n\n---\n\n{header}{text}\n")
-    except OSError:
-        pass
     return 0
 
 

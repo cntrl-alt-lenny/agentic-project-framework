@@ -10,11 +10,12 @@ project."*
 |---|---|
 | `AGENTS.md` | The project's coordination document: its declared topology, its authority statement, its own invariants, and pointers. **This is the only file that needs real thought.** |
 | `docs/agents/roles/*.md` | The role contracts, copied verbatim. Generic by design — do not edit them per project. |
-| `docs/agents/lifecycle.md`, `evidence.md`, `git-and-isolation.md`, `adapters.md` | Copied verbatim. |
+| `docs/agents/lifecycle.md`, `evidence.md`, `git-and-isolation.md`, `adapters.md`, `reports.md` | Copied verbatim. |
 | `docs/state.md` | The durable state document, starting nearly empty. |
 | `docs/briefs/` | `README.md` (lifecycle), `active.md`, `delivered/`, `archive/`. |
 | `tests/test_role_neutrality.py` | The neutrality guard, pointed at the project's declared role set. |
 | `tools/neutrality.py` | The scanner the test uses. |
+| `tools/report.py` | The provider-neutral completion-report writer every Worker and Verifier contract requires — installed unconditionally, with no `--adapter` needed. See `reports.md`. |
 | `.githooks/pre-push` *(optional)* | A client-side gate, if the project has validation worth running early. |
 | A provider adapter's files *(optional)* | Installed **where that adapter declares**, which is a property of the tool and not of the adapter's name — see [`adapters.md`](adapters.md). `adopt.py` prints the destination and the seats it installed. |
 

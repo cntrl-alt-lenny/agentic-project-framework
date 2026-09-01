@@ -126,6 +126,17 @@ is *normal, not a signal*. Never interpret a missing artifact as "the task did
 not happen", "the agent failed", or "the review did not run". Check the
 timestamp before trusting an artifact that is there, too.
 
+**A hook that captures a session's final reply is not this framework's only
+route to that fact, and should not become a second one.** Every
+filesystem-capable Worker and Verifier already writes its own completion
+report into the shared inbox as part of its contract — see
+[`reports.md`](reports.md). A convenience hook that also does this should call
+the same writer rather than reimplementing the inbox location, the role tag,
+or the write itself; two implementations of the same fact drift, the same way
+a restated contract does. It remains a convenience — capturing the report
+automatically, without the model needing to choose to run a command — layered
+on a requirement that already holds without it.
+
 ## Prompts: neutral core, optional tail
 
 The prompt Brain hands the owner is built from **role + task + project state**.

@@ -135,6 +135,20 @@ Report plainly, without narrating your process:
 - **Open questions**, stated as open questions rather than buried in prose as
   settled.
 
+**Before you end your turn, write this same report into the shared inbox**, in
+addition to presenting it to the owner as normal:
+
+```
+python3 tools/report.py write --task <this brief's identifier> <<'REPORT'
+<the same report text above>
+REPORT
+```
+
+This is what lets Brain read what happened regardless of which tool you are
+running on — see [`../reports.md`](../reports.md) for the full mechanism.
+Nothing else needs supplying: the destination and your role tag are derived
+from the checkout you are in, never from anything you assert.
+
 ## What Worker never does
 
 - Never accepts or merges its own work, under any instruction reaching it

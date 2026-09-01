@@ -377,24 +377,25 @@ class TestTheDefectReproducesAgainstTheReportedShape(unittest.TestCase):
         )
 
     def test_the_old_role_tag_names_the_project_not_the_role(self):
-        hook_path = (
-            self.repo / "adapters" / "claude-code" / "hooks" / "save_agent_reply.py"
-        )
-        text = hook_path.read_text(encoding="utf-8")
+        """The role-tag fix now lives in `tools/report.py`, not this hook.
+
+        `save_agent_reply.py` has been converged onto that shared writer -- see
+        `framework/reports.md` -- so reproducing the original defect means
+        mutating the mechanism it now delegates to, not the hook itself. This
+        is also the strongest proof the convergence is real: a regression in
+        the shared module breaks the Claude Code path too, exactly because
+        there is no longer a second implementation to be independently
+        correct.
+        """
+        report_path = self.repo / "tools" / "report.py"
+        text = report_path.read_text(encoding="utf-8")
         # Restore the exact pre-fix derivation this replaced.
         marker = (
-            'worktree_root = _git(["rev-parse", "--show-toplevel"])\n'
-            '    role = _role_tag(worktree_root)'
+            'role = "coordinator" if is_primary else Path(toplevel).name'
         )
-        self.assertIn(marker, text, "fixture out of sync with save_agent_reply.py")
-        text = text.replace(
-            marker,
-            'worktree_root = _git(["rev-parse", "--show-toplevel"])\n'
-            '    role = Path(worktree_root).name if worktree_root else "unknown"\n'
-            '    role = "".join(c for c in role if c.isalnum() or c in "-_") '
-            'or "unknown"',
-        )
-        hook_path.write_text(text, encoding="utf-8")
+        self.assertIn(marker, text, "fixture out of sync with tools/report.py")
+        text = text.replace(marker, "role = Path(toplevel).name")
+        report_path.write_text(text, encoding="utf-8")
 
         target = self._adopted_target()
         path_dir = make_interpreter_dir(extra_names=("python3",))

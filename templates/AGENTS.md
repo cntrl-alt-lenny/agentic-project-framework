@@ -140,6 +140,8 @@ one summary.**
 - Evidence standards: [`docs/agents/evidence.md`](docs/agents/evidence.md)
 - Branches, isolation, push gates:
   [`docs/agents/git-and-isolation.md`](docs/agents/git-and-isolation.md)
+- How a role's completion report reaches Brain regardless of which tool ran
+  it: [`docs/agents/reports.md`](docs/agents/reports.md)
 - Launching a role on any tool:
   [`docs/agents/adapters.md`](docs/agents/adapters.md)
 - Durable project context: [`docs/state.md`](docs/state.md) — it stores no live
