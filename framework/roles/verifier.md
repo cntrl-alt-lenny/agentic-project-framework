@@ -132,6 +132,20 @@ VERDICT
    confidence. This is an input to Brain's decision, not the decision.>
 ```
 
+**Before you end your turn, write this same report into the shared inbox**, in
+addition to presenting it to the owner as normal:
+
+```
+python3 tools/report.py write --task <the brief this review is for> <<'REPORT'
+<the same report text above>
+REPORT
+```
+
+This is what lets Brain read your findings regardless of which tool you are
+running on — see [`../reports.md`](../reports.md) for the full mechanism.
+Nothing else needs supplying: the destination and your role tag are derived
+from the checkout you are in, never from anything you assert.
+
 ## What Verifier does not do
 
 - **Does not write production code**, and does not commit or push anything.

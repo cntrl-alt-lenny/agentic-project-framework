@@ -290,11 +290,15 @@ Provider-specific conveniences must never become hidden dependencies. When a
 convenience is unavailable, a missing artifact means **UNKNOWN** — never "the
 task did not happen", "the agent failed", or "the review did not run".
 
-Fall back, in order: the owner pastes the report; inspect repository and pull
-request state directly; and where that genuinely cannot answer the question,
-**ask the owner** rather than inferring. Repository state can prove execution
-happened, because execution leaves a branch and a diff. It cannot prove a review
-happened, because a review leaves only a report.
+Fall back, in order: check the shared completion-report inbox, which every
+filesystem-capable Worker and Verifier writes to regardless of which tool ran
+them — see [`reports.md`](reports.md); the owner pastes the report if nothing
+automates the handoff; inspect repository and pull request state directly; and
+where that genuinely cannot answer the question, **ask the owner** rather than
+inferring. Repository state can prove execution happened, because execution
+leaves a branch and a diff. It cannot prove a review happened, because a review
+leaves only a report — which is exactly the gap the inbox closes without
+depending on any one provider's transcript format.
 
 ## Honest enforcement
 

@@ -12,6 +12,11 @@ the coordinating session's checkout, left it on the work branch, and a later
 session did not notice before committing unrelated work on top. Nothing was
 lost, but it should not have been possible.
 
+One more thing depends on this invariant besides safety: [`reports.md`](reports.md)'s
+completion-report mechanism derives a role's identity from *which checkout it is
+in*, and relies on two concurrently-active roles having two different checkouts
+to guarantee neither can silently overwrite the other's report.
+
 ## Layout
 
 Prefer **one top-level project directory**, with agent checkouts nested beneath

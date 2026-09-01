@@ -46,16 +46,28 @@ class TestDefaultAdoption(AdoptionCase):
             "docs/agents/roles/verifier.md",
             "docs/agents/lifecycle.md",
             "docs/agents/evidence.md",
+            "docs/agents/reports.md",
             "docs/state.md",
             "docs/briefs/README.md",
             "docs/briefs/active.md",
             "tools/neutrality.py",
             "tools/authority.py",
             "tools/textblocks.py",
+            "tools/report.py",
             "tests/test_role_neutrality.py",
         ):
             with self.subTest(path=rel):
                 self.assertTrue((self.target / rel).is_file(), rel)
+
+    def test_report_py_is_installed_with_no_adapter_at_all(self):
+        """The baseline mechanism must not depend on choosing an adapter.
+
+        `--adapter` was not passed in `setUp`; this default-topology adoption
+        is exactly the "no adapter, including for a provider that does not
+        exist yet" case `reports.md` promises to cover.
+        """
+        self.assertTrue((self.target / "tools" / "report.py").is_file())
+        self.assertTrue((self.target / "docs" / "agents" / "reports.md").is_file())
 
     def test_history_is_not_copied(self):
         # The catalogue and case studies are this repository's evidence, not the

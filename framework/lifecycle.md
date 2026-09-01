@@ -119,17 +119,26 @@ sufficient — that is the test of whether the prompt was written correctly.
 A missing report artifact means **UNKNOWN**. Not "the task did not happen", not
 "the agent failed", not "the review did not run".
 
-1. Ask the owner to paste the report.
-2. Inspect repository and pull-request state directly — the branch, the diff,
+1. Check the shared completion-report inbox — see [`reports.md`](reports.md).
+   Every filesystem-capable Worker and Verifier writes there before ending its
+   turn, regardless of which tool ran it, so this now answers the question for
+   any provider, not only one with a convenience hook installed. Check the
+   report's recorded head SHA against the checkout's current HEAD before
+   trusting it — `python3 tools/report.py status` does this.
+2. Ask the owner to paste the report, if nothing automates the handoff.
+3. Inspect repository and pull-request state directly — the branch, the diff,
    the commits, CI at that exact SHA. This works everywhere and is what the
    framework actually relies on.
-3. Where (2) genuinely cannot answer, **ask the owner** rather than inferring.
+4. Where none of the above can answer, **ask the owner** rather than inferring.
 
-Step 2 can confirm that execution happened, because execution leaves a branch
+Step 3 can confirm that execution happened, because execution leaves a branch
 and a diff whether or not anyone relayed a report. It **cannot** confirm that a
 review happened: a finished review produces no diff, no commit and no pull
 request — only a report, which is exactly the thing a missing artifact means is
-unknown. There is no repository-state proxy for that, so do not invent one.
+unknown. There is no repository-state proxy for that, so do not invent one. Step
+1 closes most of that gap without needing a human relay at all, but it is still
+a report, not repository state, and still subject to the same evidence
+discipline as any other one.
 
 ## Corrective rounds
 

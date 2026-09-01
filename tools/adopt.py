@@ -58,6 +58,7 @@ VERBATIM_DOCS = (
     "evidence.md",
     "git-and-isolation.md",
     "lifecycle.md",
+    "reports.md",
     "state.md",
     "topologies.md",
     "roles/README.md",
@@ -215,6 +216,13 @@ def build_plan(
     add("tests/test_role_neutrality.py",
         render((TEMPLATES / "tests/test_role_neutrality.py").read_text(encoding="utf-8"),
                values))
+
+    # The cross-provider completion-report writer -- see framework/reports.md.
+    # Installed unconditionally, with no `--adapter` required: it is the
+    # baseline every filesystem-capable role uses regardless of which tool runs
+    # it, and it must exist even when no adapter is installed at all, since
+    # that is the case for a provider this project has never seen.
+    add("tools/report.py", (ROOT / "tools" / "report.py").read_text(encoding="utf-8"))
 
     if hooks:
         add(".githooks/pre-push",
