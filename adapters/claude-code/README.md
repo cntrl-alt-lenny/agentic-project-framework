@@ -1,21 +1,29 @@
 # Claude Code adapter
 
-An **example** adapter, and the reference for the shape described in
-[`../../framework/adapters.md`](../../framework/adapters.md). Nothing in the
-framework depends on it. A project with no adapter at all works fine via the
-universal launch procedure.
+This file is installed into an adopting project as `.claude/README.md`, so a
+link in it is a claim about what that project has, not what the framework
+repository has. A path only the framework repository contains is written as a
+plain reference naming it, never as a link — see the framework repository's
+`framework/adapters.md` for why: an installed document may link only to
+another installed document.
 
-Install with `--adapter claude-code`. Its destination is declared in
-[`adapter.json`](adapter.json) — `.claude/` in the target repository, which is
-where this tool reads project settings, agents, commands and hooks from.
+An **example** adapter, and the reference for the shape described in the
+framework repository's `framework/adapters.md`. Nothing in the framework
+depends on it. A project with no adapter at all works fine via the universal
+launch procedure.
+
+Install with `--adapter claude-code`. Its destination is declared in this
+adapter's own `adapter.json` — a file that describes installation and is not
+itself installed — as `.claude/` in the target repository, which is where this
+tool reads project settings, agents, commands and hooks from.
 
 **The destination is declared, not derived from the adapter's name.** The two
 are different things: `claude-code` is how a project asks for this adapter on
 the command line, `.claude/` is where the tool looks. Adoption used to build
 the second from the first, which put every file in a directory the tool never
-reads. See [`../../tools/adapters.py`](../../tools/adapters.py) for the
-manifest format and [`../../tests/test_adapter_install_layout.py`](../../tests/test_adapter_install_layout.py)
-for the guards that keep the two from drifting apart again.
+reads. The framework repository's `tools/adapters.py` has the manifest format,
+and its `tests/test_adapter_install_layout.py` the guards that keep the two
+from drifting apart again.
 
 ## What it provides
 

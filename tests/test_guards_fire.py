@@ -333,6 +333,25 @@ class TestAdoptedDocReferenceGuardFires(MutationCase):
                 "does not say so",
         )
 
+    def test_a_dangling_link_in_adapter_installed_markdown_is_caught(self):
+        """The second real instance of this class, not a hypothetical.
+
+        `adapters/claude-code/README.md` installs to `.claude/README.md` via
+        `tools/adapters.py`, not via `VERBATIM_DOCS` -- a different copy
+        mechanism the guard must not need to know about by name. Mutating this
+        file rather than a `VERBATIM_DOCS` one is the point: it proves the
+        guard covers Markdown an adapter installs, not only `docs/agents/`.
+        """
+        self.assert_guard_fires(
+            path="adapters/claude-code/README.md",
+            mutate=append(
+                "\n\nSee [the framework](../../framework/does-not-exist.md).\n"
+            ),
+            module=self.MODULE, expect="../../framework/does-not-exist.md",
+            why="a broken framework-relative link inside adapter-installed "
+                "Markdown must be caught the same way a VERBATIM_DOCS one is",
+        )
+
 
 class TestClaudeCodeHookPortabilityGuardFires(MutationCase):
     """The reported incident, reproduced by mutation as well as by fixture.

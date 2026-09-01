@@ -1,4 +1,5 @@
-"""A document copied verbatim must mean the same thing in the copy.
+"""A Markdown file installed into an adopting repository must mean the same
+thing from its installed location, however it got there.
 
 THE DEFECT CLASS. `tools/adopt.py` copies the documents in `VERBATIM_DOCS` from
 `framework/` into an adopting repository's `docs/agents/`. A relative link is
@@ -21,21 +22,40 @@ copied document, pointing at a document adoption deliberately does not copy. A
 guard written against `../` would have missed it. The invariant is about
 **meaning surviving the copy**, not about dot-dot.
 
+`VERBATIM_DOCS` is not the only path a Markdown file takes into an adopted
+project. `tools/adapters.py` installs whatever files an adapter declares —
+`adapters/claude-code/README.md` among them — and that file had the identical
+defect, found by actually adopting with `--adapter claude-code` and resolving
+its links from `.claude/README.md`, not by inspection:
+
+    adapters/claude-code/README.md   ../../framework/adapters.md
+    adapters/claude-code/README.md   ../../tools/adapters.py
+    adapters/claude-code/README.md   ../../tests/test_adapter_install_layout.py
+    adapters/claude-code/README.md   adapter.json   (the manifest -- excluded from
+                                                       installation on purpose)
+
+The behavioural guard below used to skip `.claude/` explicitly, which is why
+this second instance was not caught the first time the class was closed. It
+does not skip anything now: the rule is about the installed tree, not about
+which mechanism put a given file there, so it needs no adapter-specific
+knowledge and nothing further to change when the next adapter ships one.
+
 THE RULE, stated so it can be checked mechanically:
 
     A markdown relative link is a claim that the file it names exists in the
-    repository the reader is holding. A copied document may therefore link only
-    to other copied documents. Any other path — the framework's implementation,
-    its tests, its history — is a reference, not a link: it is written as a
-    plain path and the sentence says which repository it is in.
+    repository the reader is holding. An installed document may therefore link
+    only to other installed documents. Any other path — the framework's
+    implementation, its tests, its history — is a reference, not a link: it is
+    written as a plain path and the sentence says which repository it is in.
 
 That distinction is the whole mechanism, and it needs no rendering step, no
 placeholder, and nothing copied into a project that does not belong to it.
 
-The three guards below are: the rule, checked at the source; the behaviour,
-checked by adopting for real and resolving links in the tree that produced; and
-the marker, so an unresolvable reference cannot quietly stay silent about which
-repository it means.
+The guards below are: the rule, checked at the `VERBATIM_DOCS` source; the
+behaviour, checked by adopting for real — with every adapter installed — and
+resolving links **everywhere in the tree that produced**, not only where
+`VERBATIM_DOCS` happens to land; and the marker, so an unresolvable reference
+cannot quietly stay silent about which repository it means.
 """
 
 from __future__ import annotations
@@ -154,18 +174,39 @@ class TestCopiedDocumentsOnlyLinkToCopiedDocuments(unittest.TestCase):
 
 
 class TestLinksResolveInTheAdoptedTree(AdoptedTreeCase):
-    """The behaviour, checked by adopting for real."""
+    """The behaviour, checked by adopting for real — everything installed.
+
+    Deliberately **not** scoped to `VERBATIM_DOCS`, or to any one adapter, or to
+    any directory name: it walks every `.md` file the adoption in `setUpClass`
+    actually produced, whatever put it there. That is what makes it the general
+    guard rather than one more list of specific paths to keep in sync — a new
+    adapter, or a new `VERBATIM_DOCS` entry, is covered the moment it installs
+    anything, with no change here.
+    """
 
     def _adopted_markdown(self) -> list[Path]:
-        return sorted(
-            p for p in self.target.rglob("*.md")
-            if p.is_file() and ".claude" not in p.relative_to(self.target).parts
-        )
+        return sorted(p for p in self.target.rglob("*.md") if p.is_file())
 
     def test_there_is_something_to_check(self):
         self.assertGreaterEqual(
             len(self._adopted_markdown()), 10,
             "fail closed: no adopted documentation was found to check",
+        )
+
+    def test_the_check_covers_adapter_installed_markdown_too(self):
+        """Fail closed on the generalisation itself.
+
+        Without this, dropping the old `.claude` exclusion could silently stop
+        mattering again -- e.g. if a future refactor reintroduced a directory
+        skip -- and nothing would say so until the next dangling link shipped.
+        """
+        rels = {p.relative_to(self.target).as_posix() for p in self._adopted_markdown()}
+        under_claude = [r for r in rels if r.startswith(".claude/")]
+        self.assertTrue(
+            under_claude,
+            "no adapter-installed Markdown was found to check; either the "
+            "claude-code adapter installed nothing, or this check stopped "
+            "looking under .claude/ again",
         )
 
     def test_every_internal_link_resolves_where_it_was_installed(self):
@@ -186,7 +227,7 @@ class TestLinksResolveInTheAdoptedTree(AdoptedTreeCase):
         self.assertEqual(broken, [], "\n".join(broken))
 
     def test_the_resolution_check_can_fail(self):
-        """Red before green, in the adopted tree itself."""
+        """Red before green, in the adopted tree itself -- the VERBATIM_DOCS path."""
         doc = self.target / "docs" / "agents" / "CONSTITUTION.md"
         original = doc.read_text(encoding="utf-8")
         doc.write_text(
@@ -202,6 +243,36 @@ class TestLinksResolveInTheAdoptedTree(AdoptedTreeCase):
                 "../tools/neutrality.py", broken,
                 "the check does not notice a link that escapes the copied "
                 "directory, which is the original defect",
+            )
+        finally:
+            doc.write_text(original, encoding="utf-8")
+
+    def test_the_resolution_check_can_fail_for_an_adapter_installed_file(self):
+        """Red before green again, for the adapter path this time.
+
+        This is the mutation the earlier pass on this repository missed: the
+        file lives under `.claude/`, which the check used to skip outright, so
+        a broken framework-relative link there passed silently. Proven directly
+        against the installed file, the same way the VERBATIM_DOCS case above
+        is: mutate it, confirm the extraction-and-resolve logic actually flags
+        it, restore it.
+        """
+        doc = self.target / ".claude" / "README.md"
+        self.assertTrue(doc.is_file(), "no adapter README was installed to mutate")
+        original = doc.read_text(encoding="utf-8")
+        doc.write_text(
+            original + "\n\nSee [the framework](../../framework/does-not-exist.md).\n",
+            encoding="utf-8",
+        )
+        try:
+            broken = [
+                t for t in LINK.findall(strip_fences(doc.read_text(encoding="utf-8")))
+                if not (doc.parent / t.split("#", 1)[0]).resolve().exists()
+            ]
+            self.assertIn(
+                "../../framework/does-not-exist.md", broken,
+                "an invalid framework-relative link inside adapter-installed "
+                "Markdown was not caught",
             )
         finally:
             doc.write_text(original, encoding="utf-8")
