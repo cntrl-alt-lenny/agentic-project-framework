@@ -1,0 +1,21 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  invariants:
+    name: framework invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Run from a clean checkout: local working state must never be able to
+      # manufacture a green that CI would reject. tests/test_repo_integrity.py
+      # asserts this is the same discovery the suite runs locally.
+      - name: Run the invariant suite
+        run: python -m unittest discover -s tests -t . -v

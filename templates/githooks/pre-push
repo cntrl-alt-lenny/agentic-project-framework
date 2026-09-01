@@ -1,0 +1,53 @@
+#!/bin/sh
+# Client-side push gate.
+#
+# WHAT THIS IS: early feedback. Catch a failure while the output is still in
+# front of whoever caused it, instead of finding out from CI several steps
+# later.
+#
+# WHAT THIS IS NOT: a control.
+#   - opt-in per clone (`git config core.hooksPath .githooks`), so it may simply
+#     not exist wherever a given push comes from;
+#   - `--no-verify` bypasses it by design;
+#   - it does not run at all when a push is a no-op, because git has no ref
+#     updates to hand it. Pushing an already-current branch therefore proves
+#     nothing about this hook.
+#
+# The guarantee, where the hosting provides one, is server-side branch
+# protection. Treat a green run here as "I probably did not just waste a CI
+# round", never as "this is enforced".
+#
+# This hook lives at git's pre-push layer deliberately. A tool-level hook that
+# inspects the shell command text is the wrong layer: it fires for one tool
+# only, it misses the many ways a push can be spelled, and it blocks harmless
+# commands that merely mention pushing. Here, git has already resolved the
+# refspec and hands us exactly what will be written.
+#
+# Configure by editing CHECKS below.
+
+set -e
+
+# --- project checks -------------------------------------------------------
+# Add the commands whose failure should stop a push. Keep them fast; slow
+# checks belong in CI.
+CHECKS=""
+# Example:
+# CHECKS="python -m unittest discover -s tests"
+# --------------------------------------------------------------------------
+
+[ -z "$CHECKS" ] && exit 0
+
+if [ -n "$SKIP_PUSH_CHECKS" ]; then
+    echo "pre-push: skipped (SKIP_PUSH_CHECKS set)" >&2
+    exit 0
+fi
+
+echo "pre-push: running project checks..." >&2
+if ! sh -c "$CHECKS"; then
+    echo "" >&2
+    echo "pre-push: checks failed — push aborted." >&2
+    echo "Fix them, or bypass this local hook once with: git push --no-verify" >&2
+    echo "(--no-verify skips this hook only; it does not skip CI.)" >&2
+    exit 1
+fi
+exit 0
