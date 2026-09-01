@@ -43,6 +43,14 @@ ADAPTERS = ROOT / "adapters"
 
 #: Framework documents copied verbatim into the target. Generic by design: a
 #: project does not edit them, so they cannot drift from this repository.
+#:
+#: THEY MUST ALSO MEAN THE SAME THING IN THE COPY. A markdown relative link is a
+#: claim that the file it names is in the repository the reader is holding, so a
+#: document in this tuple may link only to another document in it. Anything else
+#: — this repository's implementation, its tests, its history — is a reference
+#: rather than a link: a plain path, in a sentence that says which repository it
+#: is in. Enforced by `tests/test_adopted_doc_references.py`, which adopts into a
+#: real tree and resolves the links there.
 VERBATIM_DOCS = (
     "CONSTITUTION.md",
     "adapters.md",

@@ -32,8 +32,10 @@ needs it.
 Best when the work is sequential and research- or data-heavy, where the hard
 part is judgement about evidence rather than volume of implementation.
 
-*Evidence: [`case-studies.md`](case-studies.md) — a format-reconstruction project
-ran this topology successfully for its entire life.*
+*Evidence: a format-reconstruction project ran this topology successfully for
+its entire life. The write-up is `framework/case-studies.md` in the framework
+repository; it is that repository's history rather than any adopting project's,
+so it is not copied.*
 
 ### High assurance — architecture, foundations, canonical data
 
@@ -112,9 +114,9 @@ roles with scopes. Everything else derives from it:
 | Dispatch prompt | role + task + project state |
 
 Because they are derived, changing which provider runs a role changes none of
-them. That property is testable — see
-[`../templates/tests/test_role_neutrality.py`](../templates/tests/test_role_neutrality.py),
-which a project installs and points at its own declared role set.
+them. That property is testable: adoption installs the guard at
+`tests/test_role_neutrality.py`, pointed at this project's own declared role
+set.
 
 ## Changing the topology
 

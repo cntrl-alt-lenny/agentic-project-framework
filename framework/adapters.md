@@ -33,10 +33,11 @@ a plausible-looking directory.
 That last part is the load-bearing half. A wrong path that installs cleanly
 looks exactly like a right one: the files exist, nothing errors, and the tool
 silently reads nothing. A destination that is guessed is a destination nobody
-checked. See [`../tools/adapters.py`](../tools/adapters.py) for the manifest
-this repository uses and the reasoning, and
-[`../tests/test_adapter_install_layout.py`](../tests/test_adapter_install_layout.py)
-for the guards.
+checked. The framework repository implements this as an `adapter.json` beside
+each adapter, loaded and validated by its `tools/adapters.py` and guarded by its
+`tests/test_adapter_install_layout.py`. Neither of those is copied into an
+adopting project: they are how the framework installs adapters, not something a
+project runs.
 
 Two things must then agree, and a test should hold them together:
 
@@ -141,8 +142,8 @@ OPTIONAL — <tool> only. Ignore if you are using something else.
 
 An optional block may add launch mechanics and nothing else. It may not touch
 the role, the queue, the branch, the gate, the authority, or the merge. A test
-can enforce that; see
-[`../templates/tests/test_role_neutrality.py`](../templates/tests/test_role_neutrality.py).
+can enforce that: adoption installs one at `tests/test_role_neutrality.py`,
+pointed at this project's own declared roles.
 
 If the tool is unknown, the neutral core is still sufficient. That is the test of
 whether the prompt was written correctly.
@@ -184,6 +185,7 @@ top.
    belongs in the contract for a reason that has nothing to do with the tool —
    or it does not belong at all.
 
-An example adapter for one tool ships in
-[`../adapters/claude-code/`](../adapters/claude-code/). It is an illustration of
-the shape, not a dependency.
+The framework repository ships an example adapter for one tool under its
+`adapters/` directory. It is an illustration of the shape, not a dependency, and
+the directory itself is never copied into a project — only the files it declares
+are, at the destination it declares.

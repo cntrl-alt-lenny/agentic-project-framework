@@ -294,6 +294,46 @@ class TestAdapterInstallLayoutGuardFires(MutationCase):
             self.assertIn("adapter.json", out)
 
 
+class TestAdoptedDocReferenceGuardFires(MutationCase):
+    """A copied document that stops meaning the same thing in the copy.
+
+    Both members of the class, because a guard written against `../` would pass
+    the second one: a link can dangle after adoption without escaping anything.
+    """
+
+    MODULE = "tests.test_adopted_doc_references"
+
+    def test_a_link_escaping_the_copied_directory_is_caught(self):
+        self.assert_guard_fires(
+            path="framework/CONSTITUTION.md",
+            mutate=append(
+                "\n\nSee [the scanner](../tools/neutrality.py) for how it works.\n"
+            ),
+            module=self.MODULE, expect="../tools/neutrality.py",
+            why="`docs/agents/CONSTITUTION.md` plus `../tools/` is `docs/tools/`, "
+                "which is nothing",
+        )
+
+    def test_a_sibling_link_to_an_uncopied_document_is_caught(self):
+        """No `../` anywhere, and still meaningless after the copy."""
+        self.assert_guard_fires(
+            path="framework/topologies.md",
+            mutate=append("\n\nEvidence: [`case-studies.md`](case-studies.md).\n"),
+            module=self.MODULE, expect="case-studies.md",
+            why="a copied document may not link to one adoption does not copy",
+        )
+
+    def test_an_unmarked_framework_only_reference_is_caught(self):
+        """A reference that does not say whose repository it is in."""
+        self.assert_guard_fires(
+            path="framework/briefs.md",
+            mutate=append("\n\nThe shape is checked by `tests/test_repo_integrity.py`.\n"),
+            module=self.MODULE, expect="tests/test_repo_integrity.py",
+            why="an adopting project does not have that file, and the sentence "
+                "does not say so",
+        )
+
+
 class TestRepositoryIntegrityGuardFires(MutationCase):
     MODULE = "tests.test_repo_integrity"
 

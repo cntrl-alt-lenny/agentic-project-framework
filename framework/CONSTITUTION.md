@@ -1,6 +1,6 @@
 # Constitution
 
-The normative core of this framework. Everything else in `framework/` expands
+The normative core of this framework. Every other document in its set expands
 one section of this file. Where any other document — a provider adapter, a
 project's own `AGENTS.md`, a template — disagrees with this one, this one wins.
 
@@ -137,11 +137,14 @@ Stated positively, so the rules hold for providers that do not exist yet:
   identity, gates, or merge rights.
 
 Neutrality is enforced by those positive rules, **not** by a list of banned
-provider names. A blacklist is stale the moment a new provider ships. See
-[`../tools/neutrality.py`](../tools/neutrality.py) and
-[`../tests/test_provider_neutrality.py`](../tests/test_provider_neutrality.py),
-where the guard is proved against a provider name that appears nowhere else in
-this repository.
+provider names. A blacklist is stale the moment a new provider ships.
+
+The scanner is `tools/neutrality.py`, and a project adopting this framework
+receives it at that path together with `tests/test_role_neutrality.py`, pointed
+at the roles that project declares. The framework repository additionally proves
+the same scanner against a provider name appearing nowhere else in it — see its
+`tests/test_provider_neutrality.py`. That proof belongs to the framework, not to
+any project adopting it, which is why it is not copied.
 
 Historical text — case studies, round logs, archived briefs, the failure
 catalogue — may name whichever tool actually ran. That is a record of events,
