@@ -37,6 +37,7 @@ and `ScanResult.inert_counterexamples()` exists to make that fail.
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass, field
 from typing import Iterable, Sequence
 
@@ -345,3 +346,129 @@ def adapter_policy_hits(text: str) -> list[str]:
         for m in ADAPTER_FORBIDDEN.finditer(line)
         if not negated(line, m.start())
     ]
+
+
+# --- Command line -----------------------------------------------------------
+#
+# See the note in `authority.py`: the path walk is duplicated there rather than
+# shared, because both files are copied standalone into other repositories and
+# a scanner that needs a private helper module breaks when only it is copied.
+
+
+def _iter_files(paths: Sequence[str]) -> list["Path"]:
+    from pathlib import Path
+    out: list[Path] = []
+    for raw in paths:
+        p = Path(raw)
+        if p.is_dir():
+            out += sorted(q for q in p.rglob("*.md") if q.is_file())
+        elif p.is_file():
+            out.append(p)
+    return out
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Scan files or directories for provider-shaped lane identity.
+
+    `--roles` is required and has no default. That is the same fail-closed
+    decision `scan` makes by raising on an empty role set: every rule here is
+    expressed over the caller's declared roles, so guessing them would make the
+    scan quietly meaningless rather than loudly wrong.
+
+    Exit 0 clean, 1 findings, 2 nothing scanned.
+    """
+    import argparse
+
+    ap = argparse.ArgumentParser(
+        prog="neutrality.py",
+        description=(
+            "Detect provider-shaped lane identity -- roles, branch namespaces, "
+            "queues and topology that derive from a vendor rather than a role."
+        ),
+        epilog=(
+            "Scans exactly what it is pointed at. Selecting the normative "
+            "surface is the caller's job -- a historical document that names "
+            "the tool that actually ran will report findings, correctly. "
+            "Exit status: 0 clean, 1 findings found, 2 nothing was scanned."
+        ),
+    )
+    ap.add_argument(
+        "paths", nargs="+",
+        help="files, or directories to scan recursively for *.md",
+    )
+    ap.add_argument(
+        "--roles", required=True,
+        help="comma-separated executor roles this project declares, e.g. "
+             "'worker,verifier' -- the single source of truth for lane identity",
+    )
+    ap.add_argument(
+        "--coordinator", default="brain",
+        help="the coordinating role, which may also own branches "
+             "(default: brain)",
+    )
+    ap.add_argument(
+        "--queue-pattern", default=None,
+        help="optional regex with one capture group yielding a queue stem; "
+             "only for projects that keep such files",
+    )
+    ap.add_argument(
+        "--max-lanes", type=int, default=None,
+        help="optional; prose claiming more standing lanes than this is a "
+             "violation. Leave unset for documents discussing several topologies",
+    )
+    ap.add_argument(
+        "--quiet", action="store_true",
+        help="print nothing; use the exit status only",
+    )
+    args = ap.parse_args(argv)
+
+    roles = tuple(r.strip() for r in args.roles.split(",") if r.strip())
+    if not roles:
+        print("neutrality: --roles must name at least one role; an empty set "
+              "would make every rule vacuous", file=sys.stderr)
+        return 2
+
+    files = _iter_files(args.paths)
+    if not files:
+        print("neutrality: no files matched; refusing to report success",
+              file=sys.stderr)
+        return 2
+
+    findings: list[Finding] = []
+    inert: list[str] = []
+    for path in files:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            print(f"neutrality: cannot read {path}: {exc}", file=sys.stderr)
+            return 2
+        result = scan(
+            text, roles,
+            source=str(path),
+            coordinator=args.coordinator,
+            queue_pattern=args.queue_pattern,
+            max_lanes=args.max_lanes,
+        )
+        findings += result.findings
+        findings += scan_adapter_blocks(text, source=str(path))
+        # An exemption that protects nothing is a silent widening of the guard.
+        inert += [
+            f"{path}:{c.line} counterexample block suppresses nothing"
+            for c in result.inert_counterexamples()
+        ]
+
+    if not args.quiet:
+        for finding in findings:
+            print(finding)
+        for line in inert:
+            print(line)
+        print(
+            f"neutrality: {len(findings) + len(inert)} finding(s) in "
+            f"{len(files)} file(s)",
+            file=sys.stderr,
+        )
+    return 1 if (findings or inert) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -17,7 +17,8 @@ on the hosts — real ones, per the report that found this — with only `python
 or only a Windows `py` launcher on PATH.
 
 THE FIX, entirely inside this one adapter, never touching a role contract:
-`settings.json` now invokes `hooks/run_save_agent_reply.sh`, which tries the
+`settings.json` now invokes `hooks/run_python.sh` with the hook script as
+an argument. The shim tries the
 realistic candidates in order and only falls back to the next one if the
 current one fails to complete cleanly — catching not just "not found" but "this
 name resolves to something that is not a working Python 3". If nothing works,
@@ -27,7 +28,8 @@ between "broken here" and the ordinary silence of a round run on another tool.
 
 These tests are behavioural per `framework/evidence.md`: they adopt into a real
 temporary git repository and execute the actual configured launch path —
-`sh .claude/hooks/run_save_agent_reply.sh`, exactly as `settings.json` names it
+`sh .claude/hooks/run_python.sh .claude/hooks/save_agent_reply.py`, exactly
+as `settings.json` names it
 — under a controlled, restricted PATH, rather than checking that files exist or
 reading the script's source for the word "python3".
 """
@@ -139,7 +141,7 @@ def run_launcher(
         "transcript_path": str(transcript), "session_id": session_id,
     })
     return subprocess.run(
-        [sh, ".claude/hooks/run_save_agent_reply.sh"],
+        [sh, ".claude/hooks/run_python.sh", ".claude/hooks/save_agent_reply.py"],
         cwd=target, input=payload, capture_output=True, text=True,
         env={"PATH": str(path_dir), "HOME": str(target)},
     )
@@ -176,7 +178,8 @@ class TestConfiguredLaunchPathFindsAWorkingInterpreter(HookHarness):
             (self.target / ".claude" / "settings.json").read_text(encoding="utf-8")
         )
         command = settings["hooks"]["Stop"][0]["hooks"][0]["command"]
-        self.assertIn("run_save_agent_reply.sh", command)
+        self.assertIn("run_python.sh", command)
+        self.assertIn("save_agent_reply.py", command)
 
     def test_python3_on_path_produces_a_report(self):
         path_dir = make_interpreter_dir(extra_names=("python3",))
@@ -300,7 +303,8 @@ class TestRoleTaggingFollowsTheIsolationConvention(HookHarness):
             "transcript_path": str(transcript), "session_id": "worker-session",
         })
         proc = subprocess.run(
-            [self.sh, "../../.claude/hooks/run_save_agent_reply.sh"],
+            [self.sh, "../../.claude/hooks/run_python.sh",
+             "../../.claude/hooks/save_agent_reply.py"],
             cwd=worker_dir, input=payload, capture_output=True, text=True,
             env={"PATH": str(path_dir), "HOME": str(self.target)},
         )
@@ -345,7 +349,7 @@ class TestTheDefectReproducesAgainstTheReportedShape(unittest.TestCase):
         settings_path = self.repo / "adapters" / "claude-code" / "settings.json"
         settings_path.write_text(
             settings_path.read_text(encoding="utf-8").replace(
-                "sh .claude/hooks/run_save_agent_reply.sh",
+                "sh .claude/hooks/run_python.sh .claude/hooks/save_agent_reply.py",
                 "python .claude/hooks/save_agent_reply.py",
             ),
             encoding="utf-8",

@@ -33,7 +33,7 @@ Installed under `.claude/`:
 |---|---|
 | `agents/brain.md`, `agents/worker.md`, `agents/verifier.md` | One seat per **role contract** — exactly these three, never more. Each is frontmatter plus a pointer to the canonical contract. |
 | `commands/status.md` | One command that runs the coordinating role's rehydration sequence. |
-| `hooks/run_save_agent_reply.sh` | Finds a working Python 3 on this host and launches the hook with it. What `settings.json` actually invokes. |
+| `hooks/run_python.sh` | Finds a working Python 3 on this host and runs the script it is given. Generic: one shim for every Python hook, so a second hook needs no second wrapper. What `settings.json` actually invokes. |
 | `hooks/save_agent_reply.py` | Mirrors a session's final reply to a shared location, so reports need less manual relaying. |
 | `settings.json` | Wires the hook. |
 
@@ -73,8 +73,10 @@ timestamp before trusting a file that is there.
 
 ## Finding a Python 3 without hardcoding one name
 
-`settings.json` invokes `hooks/run_save_agent_reply.sh`, not the hook script
-directly. That is the fix for a real incident, not a style choice: an earlier
+`settings.json` invokes `hooks/run_python.sh`, passing the hook script as an
+argument rather than naming it inside the wrapper.
+
+That indirection is the fix for a real incident, not a style choice: an earlier
 version invoked one hardcoded interpreter name, and on a host where that name
 was not on PATH the operating system never started the process — not Claude
 Code, not the hook script — so nothing distinguished "misconfigured on this
@@ -82,6 +84,12 @@ clone" from "this session had nothing to report". A coordinating session read
 that as "no hook" and fell back to inspecting the working tree, which is the
 correct fallback for the wrong reason: the convenience was not absent, it was
 broken.
+
+The wrapper takes its target as an argument so one shim serves every Python
+hook a project wires, rather than needing a new wrapper per hook. That shape
+came from a downstream project that had already arrived at it while this
+adapter still hardcoded a single script; this is now the canonical copy, so
+the next project inherits it instead of solving it again.
 
 The wrapper tries `python3`, then `py -3` (Windows), then `python`, and tries
 each one *for real* rather than merely checking it exists — a name that

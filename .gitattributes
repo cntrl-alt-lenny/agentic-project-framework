@@ -1,0 +1,21 @@
+# Line endings are part of this repository's product, not a preference.
+#
+# This repository distributes shell scripts -- `templates/githooks/pre-push`
+# and the adapters' hook wrappers -- into other people's checkouts. A `#!/bin/sh`
+# script that arrives with CRLF does not run: the interpreter reads the carriage
+# return as part of the command and fails with `$'\r': command not found`. Git
+# for Windows defaults to `core.autocrlf=true`, so without this file that is the
+# ordinary outcome there, not an edge case.
+#
+# `eol=lf` rather than bare `text=auto`: `text=auto` alone normalises to LF *in
+# the repository* but still checks out CRLF on Windows, which is exactly the
+# case that breaks. The downstream project that got this right states it the
+# same way.
+* text=auto eol=lf
+
+# Binary files must never be normalised.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
