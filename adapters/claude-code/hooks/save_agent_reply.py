@@ -36,7 +36,7 @@ actually knows rather than guessing. A role that writes its own report via its
 contract supplies the real task identifier; this hook is the fallback for
 sessions that end without having done that.
 
-Requirements: python and git — reached through ``run_save_agent_reply.sh``'s
+Requirements: python and git — reached through ``run_python.sh``'s
 wrapper, which tries the Python 3 this host actually has rather than one
 hardcoded name — and ``tools/report.py`` at the project root, installed by
 `adopt.py` for every project regardless of which adapter, if any, is also

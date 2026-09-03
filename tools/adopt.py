@@ -28,6 +28,7 @@ Re-running is therefore safe and idempotent.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -224,6 +225,12 @@ def build_plan(
     # that is the case for a provider this project has never seen.
     add("tools/report.py", (ROOT / "tools" / "report.py").read_text(encoding="utf-8"))
 
+    # Installed unconditionally: a project receives `#!/bin/sh` content from
+    # this framework whenever it takes the hooks or an adapter, and a CRLF
+    # checkout makes those inert. Cheap, and wrong to make conditional on
+    # remembering a flag.
+    add(".gitattributes", (TEMPLATES / "gitattributes").read_text(encoding="utf-8"))
+
     if hooks:
         add(".githooks/pre-push",
             (TEMPLATES / "githooks/pre-push").read_text(encoding="utf-8"),
@@ -275,12 +282,28 @@ def render_plan(plan: Plan, target: Path) -> str:
     return "\n".join(out) or "  (nothing to do)"
 
 
-def apply_plan(plan: Plan) -> None:
+def apply_plan(plan: Plan) -> list[Path]:
+    """Write the plan. Returns the files whose executable bit did not take.
+
+    `chmod` is asked for, never assumed. On Windows `os.chmod` honours only the
+    read-only flag and silently discards the execute bits, so an adoption run
+    performed there produces a `pre-push` hook that git refuses to run in every
+    POSIX clone that later receives it -- inert, and silent about it, which is
+    the failure mode this framework exists to remove. Verifying costs one
+    `os.access` call and turns a silent defect into a printed instruction.
+    """
+    unset: list[Path] = []
     for dst, content, executable in plan.writes:
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(content, encoding="utf-8")
         if executable:
-            dst.chmod(dst.stat().st_mode | 0o111)
+            try:
+                dst.chmod(dst.stat().st_mode | 0o111)
+            except OSError:
+                pass
+            if not os.access(dst, os.X_OK):
+                unset.append(dst)
+    return unset
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -326,7 +349,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         print("\nadopt: --dry-run; nothing written.")
         return 0
-    apply_plan(plan)
+    unset = apply_plan(plan)
+    if unset:
+        print(
+            "\nadopt: WARNING -- the executable bit did not take on these "
+            "files. This host cannot set it (Windows discards it silently), "
+            "so a POSIX clone would receive them inert. Fix before "
+            "committing:",
+            file=sys.stderr,
+        )
+        for dst in unset:
+            print(f"  git update-index --chmod=+x {dst.relative_to(target)}",
+                  file=sys.stderr)
     print("\nadopt: done.")
     return 0
 

@@ -32,6 +32,7 @@ agent obeys what the text says.
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -191,3 +192,86 @@ def inert_counterexamples(text: str, *, source: str = "<text>") -> list[int]:
     """
     blocks, _ = counterexample_blocks(text)
     return [start for start, body in blocks if not scan(body, source=source)]
+
+
+# --- Command line -----------------------------------------------------------
+#
+# A project that adopts this framework receives this file and is expected to be
+# able to *run* it -- in CI, or by hand against a document it is unsure about.
+# Without an entrypoint that took writing glue first, which is why, in practice,
+# nobody did.
+#
+# The path walk below is duplicated in `neutrality.py` rather than shared. That
+# is deliberate: both files are copied standalone into other repositories, and a
+# scanner that drags in a private helper module is a scanner that breaks the
+# first time someone copies only the file they were told they needed.
+
+
+def _iter_files(paths: Sequence[str]) -> list["Path"]:
+    from pathlib import Path
+    out: list[Path] = []
+    for raw in paths:
+        p = Path(raw)
+        if p.is_dir():
+            out += sorted(q for q in p.rglob("*.md") if q.is_file())
+        elif p.is_file():
+            out.append(p)
+    return out
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Scan files or directories for stale authority language.
+
+    Exit 0 clean, 1 findings, 2 nothing scanned. "Nothing scanned" is an error
+    rather than a pass: a guard that silently checked no files is the failure
+    `evidence.md` calls failing open.
+    """
+    import argparse
+
+    ap = argparse.ArgumentParser(
+        prog="authority.py",
+        description="Detect stale authority language in normative documents.",
+        epilog=(
+            "Scans exactly what it is pointed at. Selecting the normative "
+            "surface is the caller's job -- a historical document that quotes "
+            "broken forms on purpose will report findings, correctly. "
+            "Exit status: 0 clean, 1 findings found, 2 nothing was scanned."
+        ),
+    )
+    ap.add_argument(
+        "paths", nargs="+",
+        help="files, or directories to scan recursively for *.md",
+    )
+    ap.add_argument(
+        "--quiet", action="store_true",
+        help="print nothing; use the exit status only",
+    )
+    args = ap.parse_args(argv)
+
+    files = _iter_files(args.paths)
+    if not files:
+        print("authority: no files matched; refusing to report success",
+              file=sys.stderr)
+        return 2
+
+    findings: list[Finding] = []
+    for path in files:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            print(f"authority: cannot read {path}: {exc}", file=sys.stderr)
+            return 2
+        findings += scan(text, source=str(path))
+
+    if not args.quiet:
+        for finding in findings:
+            print(finding)
+        print(
+            f"authority: {len(findings)} finding(s) in {len(files)} file(s)",
+            file=sys.stderr,
+        )
+    return 1 if findings else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

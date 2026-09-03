@@ -272,7 +272,7 @@ class TestAdapterInstallLayoutGuardFires(MutationCase):
         self.assert_guard_fires(
             path="adapters/claude-code/settings.json",
             mutate=lambda body: body.replace(
-                "run_save_agent_reply.sh", "not_installed_anywhere.sh"
+                "run_python.sh", "not_installed_anywhere.sh"
             ),
             module=self.MODULE, expect="not_installed_anywhere.sh",
             why="an installed config pointing at a file adoption never wrote "
@@ -371,10 +371,10 @@ class TestClaudeCodeHookPortabilityGuardFires(MutationCase):
         self.assert_guard_fires(
             path="adapters/claude-code/settings.json",
             mutate=lambda body: body.replace(
-                "sh .claude/hooks/run_save_agent_reply.sh",
+                "sh .claude/hooks/run_python.sh .claude/hooks/save_agent_reply.py",
                 "python .claude/hooks/save_agent_reply.py",
             ),
-            module=self.MODULE, expect="run_save_agent_reply.sh",
+            module=self.MODULE, expect="run_python.sh",
             why="the actual shipped incident: one hardcoded interpreter name "
                 "goes inert on any host where that name is not on PATH",
         )

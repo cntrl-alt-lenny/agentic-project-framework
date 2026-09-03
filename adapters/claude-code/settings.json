@@ -6,7 +6,7 @@
       {
         "matcher": "",
         "hooks": [
-          { "type": "command", "command": "sh .claude/hooks/run_save_agent_reply.sh" }
+          { "type": "command", "command": "sh .claude/hooks/run_python.sh .claude/hooks/save_agent_reply.py" }
         ]
       }
     ]
